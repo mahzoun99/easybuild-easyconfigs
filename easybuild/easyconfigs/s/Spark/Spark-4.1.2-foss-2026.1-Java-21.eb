@@ -1,0 +1,63 @@
+easyblock = 'Tarball'
+
+name = 'Spark'
+version = '4.1.2'
+versionsuffix = '-Java-%(javaver)s'
+homepage = 'https://spark.apache.org'
+description = """Spark is Hadoop MapReduce done in memory"""
+
+toolchain = {'name': 'foss', 'version': '2026.1'}
+
+source_urls = [
+    'https://archive.apache.org/dist/%(namelower)s/%(namelower)s-%(version)s/',
+    'https://downloads.apache.org/%(namelower)s/%(namelower)s-%(version)s/'
+]
+sources = ['%(namelower)s-%(version)s-bin-hadoop3.tgz']
+checksums = ['cf8035f265f9c3307baa2ed863897b5473c812dc1791302ba94798c2aad686f9']
+
+_grpcio_version = '1.81.0'
+dependencies = [
+    ('Python', '3.14.2'),
+    ('Java', '21', '', SYSTEM),  # Requires Java 21/17: https://spark.apache.org/docs/4.1.2/#downloading
+    ('Arrow', '24.0.0'),
+    ('grpcio', _grpcio_version, '', ('GCCcore', '15.2.0')),
+]
+
+exts_defaultclass = 'PythonPackage'
+exts_default_options = {
+    'source_urls': [PYPI_SOURCE],
+}
+
+exts_list = [
+    ('py4j', '0.10.9.9', {
+        'checksums': ['f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879'],
+    }),
+    ('grpcio-status', _grpcio_version, {
+        'modulename': 'grpc_status',
+        'source_urls': ['https://pypi.python.org/packages/source/%(name)s'],
+        'sources': ['grpcio_status-%(version)s.tar.gz'],
+        'checksums': ['b6fe9788cfdd1f0f63c0528a1e0bfdb41e8ff0583e920d2d8e8888598c01bb69'],
+    }),
+    ('googleapis-common-protos', '1.72.0', {
+        'modulename': 'google',
+        'source_urls': ['https://pypi.python.org/packages/source/%(name)s'],
+        'sources': ['googleapis_common_protos-%(version)s.tar.gz'],
+        'checksums': ['e55a601c1b32b52d7a3e65f43563e2aa61bcd737998ee672ac9b951cd49319f5'],
+    }),
+]
+
+sanity_check_paths = {
+    'files': ['bin/pyspark', 'bin/spark-shell'],
+    'dirs': ['python']
+}
+
+sanity_check_commands = [
+    "pyspark -h",
+    "python -s -c 'import pyspark'",
+]
+
+modextrapaths = {'PYTHONPATH': 'python'}
+
+modextravars = {'SPARK_HOME': '%(installdir)s'}
+
+moduleclass = 'devel'

@@ -1,0 +1,39 @@
+easyblock = 'PythonPackage'
+
+name = 'jupyter-builder'
+version = '1.1.0'
+
+homepage = 'https://github.com/jupyterlab/jupyter-builder'
+description = """Standalone build system for JupyterLab extensions.
+Builds JupyterLab extension JavaScript assets without requiring
+jupyterlab as a build dependency."""
+
+toolchain = {'name': 'GCCcore', 'version': '15.2.0'}
+
+builddependencies = [
+    ('binutils', '2.45'),
+    ('hatchling', '1.29.0'),
+]
+dependencies = [
+    ('Python', '3.14.2'),
+    ('Python-bundle-PyPI', '2026.04'),
+    ('jupyter-core', '5.9.1'),
+    ('traitlets', '5.15.1'),
+]
+
+sources = [
+    'https://files.pythonhosted.org/packages/0d/df/db5efc4e28803a1421350445e53d85ec571a4e6928e3524ccc'
+    '39f4e16584/jupyter_builder-1.1.0.tar.gz',
+]
+checksums = [
+    'b996e8af616900f18724fa34883169d869be2205497940bec78a3a1031eb897d',
+]
+
+moduleclass = 'tools'
+
+sanity_check_paths = {
+    'files': ['bin/jupyter-builder'],
+    'dirs': ['lib/python%(pyshortver)s/site-packages/jupyter_builder'],
+}
+
+sanity_check_commands = [('jupyter-builder', '--help')]

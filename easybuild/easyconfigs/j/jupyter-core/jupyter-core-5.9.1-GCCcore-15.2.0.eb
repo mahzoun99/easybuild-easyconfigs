@@ -1,0 +1,38 @@
+easyblock = 'PythonBundle'
+
+name = 'jupyter-core'
+version = '5.9.1'
+
+homepage = 'https://jupyter.org/'
+description = """Jupyter core package, which provides core utilities and classes
+used across the Jupyter ecosystem."""
+
+toolchain = {'name': 'GCCcore', 'version': '15.2.0'}
+
+dependencies = [
+    ('Python', '3.14.2'),
+    ('platformdirs', '4.9.6'),
+    ('traitlets', '5.15.1'),
+]
+
+exts_list = [
+    (name, version, {
+        'patches': ['jupyter-core-5.9.1_fix-jupyter-path.patch'],
+        'checksums': [
+            {'jupyter-core-5.9.1.tar.gz': '4d09aaff303b9566c3ce657f580bd089ff5c91f5f89cf7d8846c3cdf465b5508'},
+            {'jupyter-core-5.9.1_fix-jupyter-path.patch':
+             'd18ac152d4a5e82be11a75ec296225a1eb53ec1b86567ac8c2f47f5db6bd1990'},
+        ],
+    }),
+]
+
+sanity_check_paths = {
+    'files': ['bin/jupyter'],
+    'dirs': ['lib/python%(pyshortver)s/site-packages/jupyter_core'],
+}
+
+sanity_check_commands = [('jupyter', '--help')]
+
+moduleclass = 'tools'
+
+modextrapaths = {'EB_ENV_JUPYTER_ROOT': ''}

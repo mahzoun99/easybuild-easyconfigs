@@ -1,0 +1,125 @@
+# This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
+# Author: Denis Kristak
+# Updated by: Alex Domingo (Vrije Universiteit Brussel)
+# Updated by: Thomas Hoffmann (EMBL Heidelberg)
+# Updated by: Pavel Tománek (INUITS)
+easyblock = 'PythonBundle'
+
+name = 'jax'
+version = '0.6.0'
+versionsuffix = '-CUDA-%(cudaver)s'
+
+homepage = 'https://jax.readthedocs.io/'
+description = """Composable transformations of Python+NumPy programs:
+differentiate, vectorize, JIT to GPU/TPU, and more"""
+
+toolchain = {'name': 'gfbf', 'version': '2026.1'}
+cuda_compute_capabilities = ["7.0", "7.5", "8.0", "8.6", "9.0"]
+
+builddependencies = [
+    ('Bazel', '7.7.0', '-Java-21'),
+    ('Clang', '18.1.8', versionsuffix),
+]
+
+dependencies = [
+    ('CUDA', '13.2.0', '', SYSTEM),
+    ('cuDNN', '9.23.0.39', versionsuffix, SYSTEM),
+    ('NCCL', '2.30.4', versionsuffix),
+    ('Python', '3.13.5'),
+    ('SciPy-bundle', '2026.05'),
+    ('absl-py', '2.3.1'),
+    ('flatbuffers-python', '25.2.10'),
+    ('ml_dtypes', '0.5.3'),
+    ('hypothesis', '6.153.2'),
+    ('zlib', '1.3.1'),
+]
+
+# downloading xla tarball to avoid that Bazel downloads it during the build
+# note: following commits *must* be the exact same ones used upstream
+# XLA_COMMIT from jax-jaxlib: third_party/xla/workspace.bzl
+_xla_commit = '0d1b60216ea13b0d261d59552a0f7ef20c4f76c5'
+# Use sources downloaded by EasyBuild
+_jaxlib_buildopts = '--bazel_options="--distdir=%(builddir)s/archives" '
+# create wheels and install them
+_jaxlib_buildopts += '--wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt '
+# fix jaxlib version
+_jaxlib_buildopts += '--bazel_options="--action_env=JAXLIB_RELEASE" '
+# Workaround warning-turned-error in boringSSL, with -O3:
+# https://boringssl.googlesource.com/boringssl/+/5555991d3729d4231671214f0b9ba4858a5a8a81
+_jaxlib_buildopts += '--bazel_options="--copt=-Wno-dangling-pointer" '
+# False positive in boringSSL writing to a buffer
+_jaxlib_buildopts += '--bazel_options="--copt=-Wno-stringop-overflow" '
+
+components = [
+    ('jaxlib', version, {
+        'sources': [
+            {
+                'source_urls': ['https://github.com/google/jax/archive/'],
+                'filename': 'jax-v%(version)s.tar.gz',
+            },
+            {
+                'source_urls': ['https://github.com/openxla/xla/archive'],
+                'download_filename': f'{_xla_commit}.tar.gz',
+                'filename': f'xla-{_xla_commit[:8]}.tar.gz',
+                'extract_cmd': 'mkdir -p %(builddir)s/archives && cp %s %(builddir)s/archives',
+            },
+        ],
+        'checksums': [
+            {'jax-v0.6.0.tar.gz': '07ec7a19c3a27c4cca88288f9e9477a62cd0b54bd43c4a77f497505ddadc72ed'},
+            {'xla-0d1b6021.tar.gz': '357b37cc7c439580344ce0305bad88ef841f29743a99ea8e2253e64a32e139c6'},
+        ],
+        'start_dir': f'jax-jax-v{version}',
+        # fix jaxlib version - removes .dev suffix
+        'prebuildopts': 'export JAXLIB_RELEASE=%(version)s && ',
+        'buildopts': _jaxlib_buildopts,
+    }),
+]
+
+# JAX otherwise preallocates ~75% of GPU memory per process; disabling avoids OOM/fragmentation.
+_runtest_cmd1 = "export XLA_PYTHON_CLIENT_PREALLOCATE=false && "
+# force CUDA backend to be considered first (avoid accidental ROCm/TPU plugins or CPU fallback)
+_runtest_cmd1 += "export JAX_PLATFORMS=cuda,cpu && "
+# pin tests to a single GPU to avoid multiple workers competing for the same VRAM
+_runtest_cmd1 += 'export CUDA_VISIBLE_DEVICES=0 && '
+# make libdevice (nvvm/libdevice/libdevice.10.bc) discoverable at runtime for MLIR→PTX lowering during compilation
+_runtest_cmd1 += 'export XLA_FLAGS="--xla_gpu_cuda_data_dir=$EBROOTCUDA" && '
+# keep matmul/conv accuracy comparable to strict FP32 (no TF32)
+_runtest_cmd1 += 'export NVIDIA_TF32_OVERRIDE=0 && '
+# keep -n 1 for gpu tests - more xdist workers just pile multiple JAX/XLA processes onto the same device
+_runtest_cmd1 += "pytest -n 1 tests "
+# pallas GPU tests include kernels requiring >100 KiB shared memory per block
+# TPU tests are irrelevant here
+_runtest_cmd1 += '-k "not pallas and not tpu" '
+# expect the literal string "INFO" from Python logging; with PJRT CUDA the logs often come via absl/glog ("I ...")
+# or at DEBUG, so these are brittle and not a CUDA correctness check
+_runtest_cmd1 += "--deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_debug_logging "
+_runtest_cmd1 += "--deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_info_logging "
+# exercises cuDNN Graph/Runtime fusion for a small/odd shape; engine availability is GPU+cuDNN-version dependent
+# failing on sm_86
+_runtest_cmd1 += "--deselect=tests/cudnn_fusion_test.py::CudnnFusionTest::test_cudnn_fusion0 "
+# Checks a byte-for-byte serialized cuDNN RNN descriptor embedded in StableHLO;
+# this legitimately changes across cuDNN minors. Skip for external builds.
+_runtest_cmd1 += "--deselect=tests/experimental_rnn_test.py::RnnTest::test_struct_encoding_determinism "
+# failing after fix jaxlib version by JAXLIB_RELEASE
+_runtest_cmd1 += "--deselect=tests/version_test.py "
+# retry randomly failing tests
+_runtest_cmd = ' '.join([_runtest_cmd1, '||', _runtest_cmd1, '--last-failed'])
+
+exts_list = [
+    (name, version, {
+        'patches': [
+            'jax-0.6.0_jax-version-fix.patch',
+            'jax-0.6.0_fix-slurm-vars.patch',
+        ],
+        'runtest': 'export XLA_PYTHON_CLIENT_PREALLOCATE=false && export JAX_PLATFORMS=cuda,cpu && export CUDA_VISIBLE_DEVICES=0 && export XLA_FLAGS="--xla_gpu_cuda_data_dir=$EBROOTCUDA" && export NVIDIA_TF32_OVERRIDE=0 && pytest -n 1 tests -k "not pallas and not tpu" --deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_debug_logging --deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_info_logging --deselect=tests/cudnn_fusion_test.py::CudnnFusionTest::test_cudnn_fusion0 --deselect=tests/experimental_rnn_test.py::RnnTest::test_struct_encoding_determinism --deselect=tests/version_test.py  || export XLA_PYTHON_CLIENT_PREALLOCATE=false && export JAX_PLATFORMS=cuda,cpu && export CUDA_VISIBLE_DEVICES=0 && export XLA_FLAGS="--xla_gpu_cuda_data_dir=$EBROOTCUDA" && export NVIDIA_TF32_OVERRIDE=0 && pytest -n 1 tests -k "not pallas and not tpu" --deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_debug_logging --deselect=tests/logging_test.py::LoggingTest::test_subprocess_stderr_info_logging --deselect=tests/cudnn_fusion_test.py::CudnnFusionTest::test_cudnn_fusion0 --deselect=tests/experimental_rnn_test.py::RnnTest::test_struct_encoding_determinism --deselect=tests/version_test.py  --last-failed',
+        'sources': [{'source_urls': ['https://github.com/google/jax/archive/'], 'filename': '%(name)s-v%(version)s.tar.gz'}],
+        'testinstall': True,
+        'checksums': [
+            {'jax-v0.6.0.tar.gz': '07ec7a19c3a27c4cca88288f9e9477a62cd0b54bd43c4a77f497505ddadc72ed'},
+            {'jax-0.6.0_jax-version-fix.patch': '97b8f45a2874def34c9c256ff8620e9a93e002e18fa8583fb4f30b9e98f024b6'},
+            {'jax-0.6.0_fix-slurm-vars.patch': '2db3f5532bce4c3a11a14aa7cf83b05a9f062db6adec6de1fe23cb16c2870c47'},
+        ],
+    }),
+]
+
+moduleclass = 'ai'

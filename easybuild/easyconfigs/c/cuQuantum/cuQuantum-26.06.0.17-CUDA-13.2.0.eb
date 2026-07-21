@@ -1,0 +1,27 @@
+easyblock = 'Tarball'
+
+name = 'cuQuantum'
+local_shortver = '26.06.0'
+version = local_shortver + '.17'
+versionsuffix = '-CUDA-%(cudaver)s'
+
+homepage = 'https://developer.nvidia.com/cuquantum-sdk'
+description = """NVIDIA cuQuantum is an SDK of libraries and tools for quantum computing workflows."""
+
+toolchain = SYSTEM
+
+source_urls = ['https://developer.download.nvidia.com/compute/cuquantum/redist/cuquantum/linux-x86_64/']
+sources = ['cuquantum-linux-x86_64-%(version)s_cuda%(cudamajver)s-archive.tar.xz']
+checksums = ['1526046a38910024b10de02d568c4fad5dab9a6caf2089afa21477b7949bf0b9']
+
+local_cudamajver = '13'
+dependencies = [('CUDA', '13.2.0')]
+
+sanity_check_paths = {
+    'files': ['include/custatevec.h', 'include/cutensornet/types.h',
+              'lib/libcutensornet.%s' % SHLIB_EXT,
+              'lib/libcutensornet_static.a'],
+    'dirs': ['distributed_interfaces'],
+}
+
+moduleclass = 'lib'

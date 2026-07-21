@@ -1,0 +1,65 @@
+easyblock = 'PythonBundle'
+
+name = 'PennyLane'
+version = '0.45.1'
+versionsuffix = '-CUDA-%(cudaver)s'
+
+homepage = "https://pennylane.ai/"
+description = """PennyLane is a cross-platform Python library for
+quantum computing, quantum machine learning, and quantum
+chemistry. Train a quantum computer the same way as a neural network."""
+
+toolchain = {'name': 'foss', 'version': '2026.1'}
+
+local_pennylane_test_backends = [
+    # tests to enable when testing pennylane
+    ('jax', '0.6.0', versionsuffix),
+    ('PyTorch', '2.8.0', versionsuffix),
+    ('TensorFlow', '2.19.0', versionsuffix),
+]
+
+local_pennylane_lightning_extras = ['qubit', 'gpu', 'kokkos']
+
+dependencies = [
+    ('Python', '3.14.2'),
+    ('SciPy-bundle', '2026.05'),
+    ('networkx', '3.6.1'),
+    ('rustworkx', '0.16.0'),
+    ('CUDA', '13.2.0', '', SYSTEM),
+]
+
+if 'gpu' in local_pennylane_lightning_extras:
+    dependencies += [
+        ('cuQuantum', '26.06.0.17', versionsuffix, SYSTEM)
+    ]
+
+builddependencies = [
+    ('CMake', '3.31.11'),
+    ('Ninja', '1.13.2'),
+    ('pybind11', '3.0.4'),
+] + local_pennylane_test_backends
+
+exts_list = [
+    ('autograd', '1.8.0', {
+        'checksums': ['107374ded5b09fc8643ac925348c0369e7b0e73bbed9565ffd61b8fd04425683'],
+    }),
+    ('autoray', '0.8.4', {
+        'checksums': ['b4ce7066334279b216431a260bb5b5b84d87815e3295020a76d8701e43dc3432'],
+    }),
+    ('cachetools', '7.1.4', {
+        'checksums': ['437f55a4e0c1b01a4f3077cc470e6991d47430970e36fbcb77e2be0df4fc1cd6'],
+    }),
+    ('pennylane', version, {
+        'source_urls': ['https://github.com/PennyLaneAI/pennylane/archive/refs/tags'],
+        'sources': [{'filename': '%(name)s-v%(version)s.tar.gz', 'download_filename': 'v%(version)s.tar.gz'}],
+        'checksums': ['6d0e95fe3f95fd7cb9fdbcb1b5a6d4ffb0f102fc757bb7901d4e39e75b6351b3'],
+    }),
+    ('pennylane_lightning', '0.45.0', {
+        'source_urls': ['https://github.com/PennyLaneAI/pennylane-lightning/archive/refs/tags'],
+        'sources': [{'filename': '%(name)s-v%(version)s.tar.gz', 'download_filename': 'v%(version)s.tar.gz'}],
+        'use_pip_extras': 'qubit,gpu,kokkos',
+        'checksums': ['07ae6b465d8e57f61fb4dc8649c4ba3fc6d43bde4487937cb77075115a7b69d9'],
+    }),
+]
+
+moduleclass = 'ai'

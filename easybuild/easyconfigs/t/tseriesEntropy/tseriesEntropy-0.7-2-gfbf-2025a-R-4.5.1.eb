@@ -1,0 +1,29 @@
+easyblock = 'RPackage'
+
+name = 'tseriesEntropy'
+version = '0.7-2'
+versionsuffix = '-R-%(rver)s'
+
+homepage = 'https://cran.r-project.org/web/packages/tseriesEntropy/index.html'
+description = """Implements an Entropy measure of dependence based on the Bhattacharya-Hellinger-Matusita distance.
+ Can be used as a (nonlinear) autocorrelation/crosscorrelation function for continuous and categorical time series.
+ The package includes tests for serial dependence and nonlinearity based on it.
+ Some routines have a parallel version that can be used in a multicore/cluster environment.
+ The package makes use of S4 classes."""
+
+toolchain = {'name': 'gfbf', 'version': '2025a'}
+
+source_urls = ['https://cran.r-project.org/src/contrib/Archive/%(name)s']
+sources = ['%(name)s_%(version)s.tar.gz']
+checksums = ['396dc34a6162bd3a2a2c88c62c39cba1de6e32063b7bed782cf9e00454fb9e7e']
+
+dependencies = [
+    ('R', '4.5.1'),
+]
+
+sanity_check_paths = {
+    'files': [],
+    'dirs': [name],
+}
+
+moduleclass = 'math'
